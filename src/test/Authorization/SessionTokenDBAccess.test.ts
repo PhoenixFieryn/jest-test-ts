@@ -1,10 +1,10 @@
-import { UsersDBAccess } from '../../app/Data/UsersDBAccess';
-import { User, WorkingPosition } from '../../app/Models/UserModels';
+import { SessionTokenDBAccess } from '../../app/Authorization/SessionTokenDBAccess';
 import * as Nedb from 'nedb';
+import { SessionToken } from '../../app/Models/ServerModels';
 jest.mock('nedb');
 
-describe('UsersDBAccess test suite', () => {
-	let usersDBAccess: UsersDBAccess;
+describe('SessionTokenDBAccess', () => {
+	let sessionTokenDBAccess: SessionTokenDBAccess;
 
 	const nedbMock = {
 		loadDatabase: jest.fn(),
@@ -12,70 +12,38 @@ describe('UsersDBAccess test suite', () => {
 		find: jest.fn(),
 	};
 
+	const someToken: SessionToken = {
+		accessRights: [],
+		expirationTime: new Date(),
+		tokenId: '123',
+		userName: 'user',
+		valid: true,
+	};
+
 	beforeEach(() => {
-		usersDBAccess = new UsersDBAccess(nedbMock as any);
-		expect(nedbMock.loadDatabase).toBeCalledTimes(1);
+		sessionTokenDBAccess = new SessionTokenDBAccess(nedbMock as any);
+		expect(nedbMock.loadDatabase).toBeCalled();
 	});
 
 	afterEach(() => {
 		jest.clearAllMocks();
 	});
 
-	const someUser: User = {
-		age: 25,
-		email: 'some@email.com',
-		id: 'someId',
-		name: 'someName',
-		workingPosition: WorkingPosition.ENGINEER,
-	};
-
-	const someOtherUser: User = {
-		age: 26,
-		email: 'someOther@email.com',
-		id: 'someId',
-		name: 'someName',
-		workingPosition: WorkingPosition.ENGINEER,
-	};
-
-	test('putUser with no error', async () => {
-		const bar = (someUser: any, cb: any) => {
+	test('store sessionToken without any error', async () => {
+		nedbMock.insert.mockImplementationOnce((someToken: SessionToken, cb: any) => {
 			cb();
-		};
-		nedbMock.insert.mockImplementationOnce(bar);
-		await usersDBAccess.putUser(someUser);
-		expect(nedbMock.insert).toBeCalledWith(someUser, expect.any(Function));
+		});
+		await sessionTokenDBAccess.storeSessionToken(someToken);
+		expect(nedbMock.insert).toBeCalledWith(someToken, expect.any(Function));
 	});
 
-	test('putUser with error', async () => {
-		const bar = (someUser: any, cb: any) => {
+	test('store sessionToken with error', async () => {
+		nedbMock.insert.mockImplementationOnce((someToken: SessionToken, cb: any) => {
 			cb(new Error('something went wrong'));
-		};
-		nedbMock.insert.mockImplementationOnce(bar);
-		await expect(usersDBAccess.putUser(someUser)).rejects.toThrow('something went wrong');
-		expect(nedbMock.insert).toBeCalledWith(someUser, expect.any(Function));
-	});
-
-	test('getUsersByName with no error', async () => {
-		const bar = (someObject: Object, cb: any) => {
-			cb(null, [someUser, someOtherUser]);
-		};
-		nedbMock.find.mockImplementationOnce(bar);
-		const resultUsers = await usersDBAccess.getUsersByName('some');
-		expect(resultUsers).toEqual([someUser, someOtherUser]);
-		expect(nedbMock.find).toBeCalledWith({ name: new RegExp('some') }, expect.any(Function));
-	});
-
-	test('getUsersByName with error', async () => {
-		const bar = (someObject: Object, cb: any) => {
-			cb(new Error('something went wrong'));
-		};
-		nedbMock.find.mockImplementationOnce(bar);
-		await expect(usersDBAccess.getUsersByName('some')).rejects.toThrow('something went wrong');
-	});
-
-	test('constructor argument', () => {
-		new UsersDBAccess();
-		expect(Nedb).toBeCalledTimes(1);
-		expect(Nedb).toBeCalledWith('databases/Users.db');
+		});
+		await expect(sessionTokenDBAccess.storeSessionToken(someToken)).rejects.toThrow(
+			'something went wrong'
+		);
+		expect(nedbMock.insert).toBeCalledWith(someToken, expect.any(Function));
 	});
 });
